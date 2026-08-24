@@ -6,7 +6,7 @@ pydantic-settings. Nothing else in the codebase should call os.environ
 directly - this keeps configuration testable and swappable per environment.
 """
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -29,7 +29,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
     # --- CORS ---
-    BACKEND_CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
+    CORS_ORIGINS: Optional[str] = None
+    BACKEND_CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:3000,https://workflow-pro-bn80.onrender.com"
 
     # --- Attendance ---
     WORKDAY_START_TIME: str = "09:30"
@@ -44,7 +45,36 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> List[str]:
-        return [origin.strip() for origin in self.BACKEND_CORS_ORIGINS.split(",") if origin.strip()]
+        raw = self.CORS_ORIGINS or self.BACKEND_CORS_ORIGINS or ""
+        origins: List[str] = []
+        if raw.strip().startswith("[") and raw.strip().endswith("]"):
+            try:
+                import json
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    for item in parsed:
+                        clean = str(item).strip().rstrip("/")
+                        if clean and clean not in origins:
+                            origins.append(clean)
+            except Exception:
+                pass
+        if not origins:
+            for item in raw.split(","):
+                clean = item.strip().rstrip("/")
+                if clean and clean not in origins:
+                    origins.append(clean)
+
+        defaults = [
+            "https://workflow-pro-bn80.onrender.com",
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:3000",
+        ]
+        for d in defaults:
+            if d not in origins:
+                origins.append(d)
+        return origins
 
     @field_validator("SECRET_KEY")
     @classmethod
