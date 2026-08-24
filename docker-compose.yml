@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: workflow_pro_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: workflow
+      POSTGRES_PASSWORD: workflow_password
+      POSTGRES_DB: workflow_pro
+    ports:
+      - "5432:5432"
+    volumes:
+      - workflow_pro_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workflow -d workflow_pro"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: workflow_pro_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg2://workflow:workflow_password@db:5432/workflow_pro
+      SECRET_KEY: secure_production_secret_key_workflow_pro_enterprise_2026
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      ENVIRONMENT: production
+      LOG_LEVEL: INFO
+      BACKEND_CORS_ORIGINS: http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://localhost
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000/api/v1
+    container_name: workflow_pro_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  workflow_pro_pgdata:
