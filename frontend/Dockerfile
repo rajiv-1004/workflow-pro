@@ -16,7 +16,9 @@ RUN npm ci
 COPY . .
 
 # Build argument for backend API URL (embedded at build time by Vite)
-ARG VITE_API_BASE_URL=http://localhost:8000/api/v1
+ARG VITE_API_URL=""
+ARG VITE_API_BASE_URL=""
+ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
 # Build production bundle
